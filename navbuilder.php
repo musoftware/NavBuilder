@@ -1,4 +1,5 @@
 <?php
+
 /**
  * NavBuilder
  *
@@ -8,7 +9,6 @@
  * @author   KrisOzolins <http://krisozolins.com>
  * @version  1.0
  */
-
 class NavBuilder
 {
     // Associative array of attributes for list
@@ -56,13 +56,14 @@ class NavBuilder
      * @param   bool    Conditionally set, whether to show this item or not
      * @return  NavBuilder
      */
-    public function add($title, $url = null, NavBuilder $children = null, $show = true)
+    public function add($title, $url = null, NavBuilder $children = null, $show = true, $attributes = '')
     {
         $this->links[] = array(
-            'title'     => $title,
-            'url'       => trim((!empty($url)) ? $url : Inflector::friendly_title($title, '-', true), '/'),
-            'children'  => is_object($children) ? $children->links : null,
-            'show'      => $show,
+            'title' => $title,
+            'url' => trim((!empty($url)) ? $url : Inflector::friendly_title($title, '-', true), '/'),
+            'children' => is_object($children) ? $children->links : null,
+            'show' => $show,
+            'attributes' => $attributes
         );
 
         return $this;
@@ -78,14 +79,14 @@ class NavBuilder
     public function build(array $settings = array(), $parent_id = 0)
     {
         $default_settings = array(
-            'table_name'            => 'categories',
-            'id_column_name'        => 'id',
-            'parent_column_name'    => 'parent_id',
-            'title_column_name'     => 'title',
-            'url_column_name'       => 'url',
-            'order_by_column_name'  => 'id',
-            'order_by_direction'    => 'asc',
-            'is_active_column'      => 'is_active', // Should be boolean
+            'table_name' => 'categories',
+            'id_column_name' => 'id',
+            'parent_column_name' => 'parent_id',
+            'title_column_name' => 'title',
+            'url_column_name' => 'url',
+            'order_by_column_name' => 'id',
+            'order_by_direction' => 'asc',
+            'is_active_column' => 'is_active', // Should be boolean
         );
 
         $settings = array_merge($default_settings, $settings);
@@ -95,11 +96,11 @@ class NavBuilder
             ->order_by($settings['order_by_column_name'], $settings['order_by_direction'])
             ->execute()->as_array();
 
-        if ( ! empty($links)) {
+        if (!empty($links)) {
             $nav = new NavBuilder;
 
             foreach ($links as $link) {
-                if ( ! isset($link[$settings['is_active_column']])) {
+                if (!isset($link[$settings['is_active_column']])) {
                     $show = true;
                 } else {
                     $show = $link[$settings['is_active_column']];
@@ -131,7 +132,7 @@ class NavBuilder
 
         $i++;
 
-        $menu = '<ul'.($i == 1 ? self::attributes($attrs) : null).'>';
+        $menu = '<ul' . ($i == 1 ? self::attributes($attrs['first_ul']) : self::attributes($attrs['ul'])) . '>';
 
         foreach ($links as $link) {
             $has_children = isset($link['children']);
@@ -140,17 +141,22 @@ class NavBuilder
 
             $has_children ? $class[] = 'parent' : null;
 
-            if ( ! empty($current)) {
+            if (!empty($current)) {
                 if ($current_class = self::current($current, $link)) {
                     $class[] = $current_class;
                 }
             }
-
-            $classes = ! empty($class) ? self::attributes(array('class' => implode(' ', $class))) : null;
-
-            if ( ! isset($link['show']) || $link['show']) {
-                $menu .= '<li'.$classes.'><a href="'.Uri::create($pre_url.'/'.$link['url']).'">'.$link['title'].'</a>';
-                $menu .= $has_children ? $this->render(null, $current, $pre_url, $link['children']) : null;
+            if ($has_children) {
+                $tmp_attr['class'] = implode(' ', $class) . ' ' . $attrs['li']['class'];
+                $parent = array_merge($attrs['li'], $tmp_attr);
+                $classes = !empty($class) ? self::attributes($parent) : self::attributes($attrs['li']);
+            } else {
+                $classes = '';
+            }
+            
+            if (!isset($link['show']) || $link['show']) {
+                $menu .= '<li' . $classes . '><a href="' . Uri::create($pre_url . '/' . $link['url']) . '">' . $link['title'] . '</a>';
+                $menu .= $has_children ? $this->render($attrs, $current, $pre_url, $link['children']) : null;
                 $menu .= '</li>';
             }
         }
@@ -165,7 +171,7 @@ class NavBuilder
     /**
      * Compiles an array of HTML attributes into an attribute string.
      *
-     * @param   string|array  array of attributes
+     * @param   string|array array of attributes
      * @return  string
      */
     private static function attributes($attrs)
@@ -175,12 +181,12 @@ class NavBuilder
         }
 
         if (is_string($attrs)) {
-            return ' '.$attrs;
+            return ' ' . $attrs;
         }
 
         $compiled = '';
         foreach ($attrs as $key => $val) {
-            $compiled .= ' '.$key.'="'.htmlspecialchars($val).'"';
+            $compiled .= ' ' . $key . '="' . htmlspecialchars($val) . '"';
         }
 
         return $compiled;
